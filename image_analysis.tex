@@ -1541,36 +1541,24 @@ where:
 
 \begin{verbatim}
 (* Butterworth Low Pass Filter Example *)
-(* Steps 1-3: Same as previous filters *)
-img = ExampleData[{"TestImage", "Lena"}];
-{M, N} = ImageDimensions[img];
-P = 2*M; Q = 2*N;
-imgData = ImageData[img, "Real"];
-paddedImg = PadRight[imgData, {P, Q}, 0];
+BLPF[img_,D0_,order_]:=Module[{A, Md, Nd, CM, B, B1,P,Q,
+BF,filterButterworth,filteredDFT,inverseDFT,phaseShift,filteredShifted,resultImg },
+A=ImageData[ColorConvert[img,"Grayscale"],"Byte"];{Md,Nd}=Dimensions[A];
+CM=Table[(-1)^(i+j),{i,1,Md},{j,1,Nd}];B=A*CM;
+B1=ArrayPad[B,{{0,Md},{0,Nd}}];{P,Q}=Dimensions[B1];
+BF=Fourier[B1,FourierParameters->{1,-1}];
+filterButterworth=Table[1/(1+(Sqrt[(u-P/2)^2+(v-Q/2)^2]/D0)^(2*order)),{u,0,P-1},{v,0,Q-1}];
+filteredDFT=BF*filterButterworth;
+inverseDFT=InverseFourier[filteredDFT,FourierParameters->{1, -1}];
+phaseShift=Table[(-1)^(x+y),{x,0,P-1},{y,0,Q-1}];
+filteredShifted=inverseDFT*phaseShift;
+resultImg=Take[Re[filteredShifted],{1,Md},{1,Nd}];
+Image[resultImg,"Byte"]
+]
 
-phaseShift = Table[(-1)^(x + y), {x, 0, P-1}, {y, 0, Q-1}];
-shiftedImg = paddedImg * phaseShift;
+i = Import["https://boofcv.org/images/thumb/6/66/Kodim17_noisy.jpg/300px-Kodim17_noisy.jpg"]
 
-dftResult = Fourier[shiftedImg];
-
-(* Step 4: Butterworth Low Pass Filter *)
-D0 = 30; (* Cutoff frequency *)
-n = 2; (* Order of filter *)
-filterButterworth = Table[
-    1 / (1 + (Sqrt[(u - P/2)^2 + (v - Q/2)^2] / D0)^(2*n)),
-    {u, 0, P-1}, {v, 0, Q-1}
-];
-
-(* Steps 5-7: Same process *)
-filteredDFT = dftResult * filterButterworth;
-inverseDFT = InverseFourier[filteredDFT];
-filteredShifted = inverseDFT * phaseShift;
-
-resultImg = Take[Re[filteredShifted], {1, M}, {1, N}];
-resultButterworth = Image[Rescale[resultImg, {Min[resultImg], Max[resultImg]}, 
-                                                          {0, 1}]];
-
-Row[{Image[imgData], resultButterworth}, Spacer[10]]
+Manipulate[BLPF[i,cutoff,order],{cutoff,1,255,1},{order,1,4}]
 \end{verbatim}
 
 \subsubsection*{Comparison: Low Pass Filters}
