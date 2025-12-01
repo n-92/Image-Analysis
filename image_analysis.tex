@@ -1751,38 +1751,29 @@ where:
 
 \subsubsection*{Mathematica Implementation}
 
-\begin{verbatim}
-(* Butterworth High Pass Filter Example *)
-(* Steps 1-3: Same as previous filters *)
-img = ExampleData[{"TestImage", "Lena"}];
-{M, N} = ImageDimensions[img];
-P = 2*M; Q = 2*N;
-imgData = ImageData[img, "Real"];
-paddedImg = PadRight[imgData, {P, Q}, 0];
+\begin{verbatim}BHPF[img_, D0_, order_] := 
 
-phaseShift = Table[(-1)^(x + y), {x, 0, P-1}, {y, 0, Q-1}];
-shiftedImg = paddedImg * phaseShift;
+ Module[{A, Md, Nd, CM, B, B1, P, Q, BF, filterButterworth, 
+    filteredDFT, inverseDFT, phaseShift, filteredShifted, resultImg}, 
 
-dftResult = Fourier[shiftedImg];
+  A = ImageData[ColorConvert[img, "Grayscale"], "Byte"]; {Md, Nd} = Dimensions[A];
 
-(* Step 4: Butterworth High Pass Filter *)
-D0 = 30; (* Cutoff frequency *)
-n = 2; (* Order of filter *)
-filterButterworth = Table[
-    1 / (1 + (D0 / (Sqrt[(u - P/2)^2 + (v - Q/2)^2] + 0.00001))^(2*n)),
-    {u, 0, P-1}, {v, 0, Q-1}
-];
+  CM = Table[(-1)^(i + j), {i, 1, Md}, {j, 1, Nd}]; B = A*CM;
+  B1 = ArrayPad[B, {{0, Md}, {0, Nd}}]; {P, Q} = Dimensions[B1];
+  BF = Fourier[B1, FourierParameters -> {1, -1}];
+  filterButterworth = 
+   Table[1/(1 + (D0/(Sqrt[(u - P/2)^2 + (v - Q/2)^2] + 0.0001))^(2*
+          order)), {u, 0, P - 1}, {v, 0, Q - 1}]; 
+  filteredDFT = BF*filterButterworth;
+  inverseDFT = 
+   InverseFourier[filteredDFT, FourierParameters -> {1, -1}];
+  phaseShift = Table[(-1)^(x + y), {x, 0, P - 1}, {y, 0, Q - 1}];
+  filteredShifted = inverseDFT*phaseShift;
+  resultImg = Take[Re[filteredShifted], {1, Md}, {1, Nd}];
+  Image[resultImg, "Byte"]]
 
-(* Steps 5-7: Same process *)
-filteredDFT = dftResult * filterButterworth;
-inverseDFT = InverseFourier[filteredDFT];
-filteredShifted = inverseDFT * phaseShift;
-
-resultImg = Take[Re[filteredShifted], {1, M}, {1, N}];
-resultButterworth = Image[Rescale[resultImg, {Min[resultImg], Max[resultImg]}, 
-                                                          {0, 1}]];
-
-Row[{Image[imgData], resultButterworth}, Spacer[10]]
+i = Import["https://boofcv.org/images/thumb/6/66/Kodim17_noisy.jpg/300px-Kodim17_noisy.jpg"]
+Manipulate[BHPF[i, cutoff, order], {cutoff, 1, 255, 1}, {order, 1, 4}]
 \end{verbatim}
 
 \subsubsection*{Comparison: High Pass Filters}
@@ -1945,127 +1936,76 @@ Noise Sensitivity & Moderate & High (amplifies all frequencies) \\
 \end{center}
 
 \newpage
+\section*{Unsharp Masking, Highboost Filtering, and High Frequency Emphasis Filtering (Mathematica Example)}
 
-\section*{Unsharp Masking and Highboost Filtering in Frequency Domain}
+\begin{verbatim}
+UnsharpMaskG[im_, D0_, k1_, k2_] := (
+    img = ColorConvert[im, "Grayscale"];
+    A = ImageData[img, "Byte"];
+    d = Dimensions[A];
+    M1 = d[[1]]; (* number of rows *)
+    M2 = d[[2]]; (* number of columns *)
+    CMat = Array[1 - 2 Mod[#1 + #2, 2] &, {M1, M2}];
+    B = A*CMat;
+    B1 = ArrayPad[B, {{0, M1 + 1}, {0, M2 + 1}}];
+    d = Dimensions[B1];
+    P = d[[1]];
+    Q = d[[2]];
+    BF = Fourier[B1, FourierParameters -> {1, -1}];
+    H2 = GaussianMatrix[{{M1, M2}, D0}, Standardized -> False];
+    H2n = H2/H2[[M1 + 1, M2 + 1]];
+    H = 1 - H2n;
+    G = BF*(k1 + k2*H);
+    R = Re[InverseFourier[G, FourierParameters -> {1, -1}]];
+    R1 = Take[R, {1, M1}, {1, M2}];
+    R1 = R1*CMat;
+    Grid[{{"Original image", "Filtered image", 
+         "Filtered image after intensity transformation"}, {im, 
+         Image[R1, "Byte"], HistogramTransform[Image[R1, "Byte"]]}}, 
+     Spacings -> {2, 2, 2}, Frame -> All]
+)
+UnsharpMaskG[i4, 70, 0.5, 0.75]
+\end{verbatim}
 
-Unsharp masking and highboost filtering are sharpening techniques that can be effectively implemented in the frequency domain. These methods work by separating the image into low-frequency (smooth) and high-frequency (detail) components, then recombining them with controlled emphasis.
 
-\subsection*{Frequency Domain Implementation}
 
-The frequency domain approach to unsharp masking follows these steps:
 
-\begin{enumerate}
-    \item \textbf{Create a Blurred Version:} Apply a low-pass filter (e.g., Gaussian) to the original image in the frequency domain to obtain the smooth component.
-    
-    \item \textbf{Calculate the High-Frequency Component:} Subtract the blurred image from the original image to isolate the high-frequency details (edges):
-    \[
-    \text{High-Freq} = f(x,y) - \text{blur}[f(x,y)]
-    \]
-    
-    \item \textbf{Add Back with Scaling:} Add the high-frequency component back to the original image with a scaling factor $k$ to control the amount of sharpening:
-    \[
-    g(x,y) = f(x,y) + k \cdot \text{High-Freq}
-    \]
-    where $k = 1$ produces standard unsharp masking and $k > 1$ produces highboost filtering.
-\end{enumerate}
+\subsection*{Explanation: Unsharp Masking, Highboost Filtering, and High Frequency Emphasis Filtering}
 
-\subsection*{Mathematical Formulation}
+\textbf{Unsharp masking} is a classic image sharpening technique. It works by subtracting a blurred (lowpass filtered) version of the image from the original, emphasizing edges and fine details (high frequencies). The result can be added back to the original image for enhanced sharpness.
 
-The combined unsharp masking/highboost filter transfer function can be expressed as:
-
+\textbf{Highboost filtering} generalizes unsharp masking by scaling the high-frequency component before adding it back. The formula is:
 \[
-H(u,v) = 1 + k \cdot [1 - H_{\text{lowpass}}(u,v)]
+g(x, y) = f(x, y) + k \cdot [f(x, y) - \text{blur}(f(x, y))]
 \]
+where $k > 1$ produces stronger sharpening.
 
-where $H_{\text{lowpass}}(u,v)$ is any low-pass filter (Gaussian, Butterworth, etc.).
-
-For a Gaussian low-pass filter:
-
+\textbf{High frequency emphasis filtering} is a further generalization, where both the original and the high-frequency component are scaled independently:
 \[
-H(u,v) = 1 + k \cdot \left[1 - e^{-D(u,v)^2 / (2D_0^2)}\right]
+G(u, v) = [k_1 + k_2 \cdot H_{HPF}(u, v)] \cdot F(u, v)
 \]
+where $H_{HPF}$ is a highpass filter (e.g., Gaussian), $k_1$ controls the original image, and $k_2$ controls the high-frequency emphasis.
 
-This can be rewritten as:
+\textbf{In the code above:}
+- The image is converted to grayscale and centered for frequency domain processing.
+- A Gaussian highpass filter is constructed.
+- The filter is applied in the frequency domain with weights $k_1$ and $k_2$ (high frequency emphasis).
+- The result is inverse transformed, de-centered, and displayed.
+- The third column shows the result after histogram equalization for better contrast.
 
+This approach allows flexible sharpening, from subtle (unsharp masking) to aggressive (highboost), and can emphasize high-frequency details as needed.
+
+\subsection*{How to Choose $k_1$ and $k_2$ in High Frequency Emphasis Filtering}
+
+The parameters $k_1$ and $k_2$ in high frequency emphasis filtering control the contribution of the original image and the high-frequency (sharpened) component, respectively:
 \[
-H(u,v) = (1 - k) + k \cdot \left[1 - e^{-D(u,v)^2 / (2D_0^2)}\right]
+G(u, v) = [k_1 + k_2 \cdot H_{HPF}(u, v)] \cdot F(u, v)
 \]
-
-\subsection*{Effect of the Scaling Factor $k$}
+where $H_{HPF}(u, v)$ is the highpass filter transfer function.
 
 \begin{itemize}
-    \item $k = 0$: Original image (no sharpening).
-    \item $k = 1$: Standard unsharp masking (high-frequency components added with equal weight).
-    \item $k > 1$: Highboost filtering (high-frequency components amplified, producing stronger sharpening).
-    \item $k < 0$: Produces a blurred image (reverse effect).
-\end{itemize}
-
-\subsection*{Visualization of Transfer Function}
-
-\begin{center}
-\begin{tikzpicture}[scale=1.2]
-    % Axes
-    \draw[->] (0,0) -- (5.5,0) node[right] {Distance from Center $D(u,v)$};
-    \draw[->] (0,0) -- (0,4) node[above] {$H(u,v)$};
-
-    % Grid
-    \draw[step=1,gray!20] (0,0) grid (5,4);
-
-    % Low-pass filter (for reference, dashed)
-    \draw[thick,gray!50,dashed,domain=0:5,samples=80] plot (\x,{2.5*exp(-(\x)^2/1.5)});
-
-    % Unsharp masking (k=1)
-    \draw[thick,blue,domain=0:5,samples=80] plot (\x,{2.5 + (2.5*(1-exp(-(\x)^2/1.5)))});
-    
-    % Highboost (k=1.5)
-    \draw[thick,red,domain=0:5,samples=80] plot (\x,{2.5 + 1.5*(2.5*(1-exp(-(\x)^2/1.5)))});
-    
-    % Highboost (k=2)
-    \draw[thick,green,domain=0:5,samples=80] plot (\x,{2.5 + 2*(2.5*(1-exp(-(\x)^2/1.5)))});
-
-    % Labels
-    \node[left] at (0,2.5) {$1$};
-    \node[left] at (0,3.75) {$2$};
-    \node[above right,blue] at (3.5,3.5) {Unsharp ($k=1$)};
-    \node[above right,red] at (3.5,3.2) {Highboost ($k=1.5$)};
-    \node[above right,green] at (3.5,2.9) {Highboost ($k=2$)};
-    \node[above right,gray!50] at (1,1.5) {Gaussian LPF};
-\end{tikzpicture}
-\end{center}
-\subsection*{Comparison of Different $k$ Values}
-
-The following table summarizes the effects of different scaling factors:
-
-\begin{center}
-\begin{tabular}{|c|c|c|}
-\hline
-\textbf{Scaling Factor ($k$)} & \textbf{Technique Name} & \textbf{Visual Effect} \\
-\hline
-$k = 0$ & Original Image & No modification \\
-\hline
-$0 < k < 1$ & Partial Unsharp & Subtle sharpening \\
-\hline
-$k = 1$ & Standard Unsharp Masking & Balanced sharpening \\
-\hline
-$k > 1$ & Highboost Filtering & Aggressive edge enhancement \\
-\hline
-$k = 2$ & Strong Highboost & Very pronounced edges \\
-\hline
-\end{tabular}
-\end{center}
-
-\subsection*{Practical Guidelines}
-
-\begin{itemize}
-    \item \textbf{For General Use:} Start with $k = 1$ (unsharp masking) for a natural-looking sharpening effect.
-    
-    \item \textbf{For Edge Enhancement:} Use $k = 1.5$ to $k = 2$ for more pronounced edge emphasis.
-    
-    \item \textbf{Cutoff Frequency $D_0$:} Larger values preserve more detail; smaller values produce more aggressive sharpening. Typically, $D_0 = 20$ to $D_0 = 50$ works well for most images.
-    
-    \item \textbf{Noise Sensitivity:} Highboost filtering with large $k$ values can amplify noise. Consider applying a smoothing filter before sharpening if noise is present.
-    
-    \item \textbf{Combining Operations:} Frequency domain methods allow easy combination with other filters by multiplying transfer functions.
+    \item \textbf{$k_1$ (Low Frequency Weight):} Controls the amount of the original (low-frequency) image retained. Typical values are $0 \leq k_1 \leq 1$. Setting $k_1 = 1$ keeps the original image fully; $k_1 < 1$ reduces its contribution.
+    \item \textbf{$k_2$ (High Frequency Weight):} Controls the strength of the high-frequency emphasis (sharpening). Typical values are $0 < k_2 \leq 1$. Increasing $k_2$ increases sharpening, but too large a value can amplify noise and cause artifacts.
 \end{itemize}
 
 \newpage
