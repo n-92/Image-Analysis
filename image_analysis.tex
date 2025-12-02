@@ -2194,203 +2194,231 @@ Intuitive Understanding & High (visual process) & Lower (frequency interpretatio
 \hline
 \end{tabular}
 \end{center}
+\vspace{4pt}
 
-\section*{Band Rejection Filters (Band Stop Filters)}
+\section*{Band Reject, Band Pass, and Notch Filters}
 
-Band rejection filters (also called band stop or band cut filters) are frequency domain filters that attenuate a specific range of frequencies while passing all others. They are useful for removing unwanted frequency bands, such as periodic noise or interference, without affecting the rest of the image.
+This section provides Mathematica code for frequency domain band reject, band pass, and notch filters. Each filter is illustrated with a schematic graph showing its frequency response, followed by the corresponding Mathematica implementation.
 
-\subsection*{Types of Band Rejection Filters}
+\subsection*{Mathematica Code Examples}
 
-\begin{itemize}
-    \item \textbf{Ideal Band Reject Filter (IBRF):} Sharp cutoff at the inner and outer radii, completely removing frequencies in the band.
-    \item \textbf{Gaussian Band Reject Filter (GBRF):} Smooth transition between pass and stop bands, minimizing ringing artifacts.
-    \item \textbf{Butterworth Band Reject Filter (BBRF):} Adjustable sharpness of the transition via filter order $n$.
-\end{itemize}
-
-\subsubsection*{Transfer Functions}
-
-Let $D(u,v) = \sqrt{(u - P/2)^2 + (v - Q/2)^2}$ be the distance from the frequency domain center, and $D_0$ the center frequency of the rejected band, $W$ the bandwidth.
-
-\begin{itemize}
-    \item \textbf{Ideal Band Reject:}
-    \[
-    H(u,v) = \begin{cases}
-        0, & D_0 - \frac{W}{2} \leq D(u,v) \leq D_0 + \frac{W}{2} \\
-        1, & \text{otherwise}
-    \end{cases}
-    \]
-    \item \textbf{Gaussian Band Reject:}
-    \[
-    H(u,v) = 1 - \exp\left( -\frac{1}{2} \left( \frac{D(u,v)^2 - D_0^2}{D(u,v) W + 10^{-5}} \right)^2 \right)
-    \]
-    \item \textbf{Butterworth Band Reject (order $n$):}
-    \[
-    H(u,v) = \frac{1}{1 + \left( \frac{D(u,v) W}{D(u,v)^2 - D_0^2 + 10^{-5}} \right)^{2n}}
-    \]
-\end{itemize}
-
-\subsection*{Mathematica Implementation Example}
-
-Below is a generic Mathematica code template for applying a band rejection filter (choose IBRF, GBRF, or BBRF by setting \texttt{filterType}):
-
+\textbf{1. Ideal Band Reject Filter}
 \begin{verbatim}
-(* Parameters *)
-img = ExampleData[{"TestImage", "Lena"}];
-{M, N} = ImageDimensions[img];
-P = 2*M; Q = 2*N;
-imgData = ImageData[img, "Real"];
-paddedImg = PadRight[imgData, {P, Q}, 0];
-
-(* Phase shift *)
-phaseShift = Table[(-1)^(x + y), {x, 0, P-1}, {y, 0, Q-1}];
-shiftedImg = paddedImg * phaseShift;
-
-(* DFT *)
-dftResult = Fourier[shiftedImg];
-
-(* Band reject filter parameters *)
-D0 = 40; (* Center frequency *)
-W = 20;  (* Bandwidth *)
-n = 2;   (* Butterworth order *)
-filterType = "Butterworth"; (* "Ideal", "Gaussian", or "Butterworth" *)
-
-(* Construct filter *)
-filter = Table[
-  Module[{D = Sqrt[(u - P/2)^2 + (v - Q/2)^2]},
-    Switch[filterType,
-      "Ideal",
-        If[D >= D0 - W/2 && D <= D0 + W/2, 0, 1],
-      "Gaussian",
-        1 - Exp[-0.5 * ((D^2 - D0^2)/(D*W + 10^-5))^2],
-      "Butterworth",
-        1/(1 + ((D*W)/(D^2 - D0^2 + 10^-5))^(2 n))
-    ]
-  ],
-  {u, 0, P-1}, {v, 0, Q-1}
-];
-
-(* Apply filter *)
-filteredDFT = dftResult * filter;
-
-(* Inverse DFT and phase shift *)
-inverseDFT = InverseFourier[filteredDFT];
-filteredShifted = inverseDFT * phaseShift;
-
-(* Extract result *)
-resultImg = Take[Re[filteredShifted], {1, M}, {1, N}];
-resultImage = Image[Rescale[resultImg, {Min[resultImg], Max[resultImg]}, {0, 1}]];
-
-(* Display *)
-Row[{Image[imgData], resultImage}, Spacer[10]]
+IdealBandRejectFilter[img_, D0_, W_] := Module[
+    {data, rows, cols, P, Q, paddedData, centeredData, 
+    F, H, d, G, gInverse, gReal, finalData, result},
+    data = ImageData[ColorConvert[img, "Grayscale"]];
+    {rows, cols} = Dimensions[data];
+    P = 2*rows; Q = 2*cols;
+    paddedData = ArrayPad[data, {{0, rows}, {0, cols}}];
+    centeredData = Table[paddedData[[x, y]]*(-1)^(x + y), {x, 1, P}, 
+    {y, 1, Q}];
+    F = Fourier[centeredData, FourierParameters -> {1, -1}];
+    H = Table[
+        d = Sqrt[(u - P/2)^2 + (v - Q/2)^2];
+        If[D0 - W/2 <= d <= D0 + W/2, 0, 1],
+        {u, 1, P}, {v, 1, Q}
+    ];
+    G = F*H;
+    gInverse = InverseFourier[G, FourierParameters -> {1, -1}];
+    gReal = Re[gInverse];
+    finalData = Table[gReal[[x, y]]*(-1)^(x + y), {x, 1, P}, {y, 1, Q}];
+    result = Take[finalData, {1, rows}, {1, cols}];
+    Image[result]
+]
 \end{verbatim}
 
-\subsection*{Summary Table}
-
-\begin{center}
-\begin{tabular}{|c|c|c|c|}
-\hline
-\textbf{Filter} & \textbf{Transition} & \textbf{Parameters} & \textbf{Artifacts} \\
-\hline
-IBRF & Sharp & $D_0$, $W$ & Ringing \\
-GBRF & Smooth & $D_0$, $W$ & Minimal \\
-BBRF & Adjustable (via $n$) & $D_0$, $W$, $n$ & Tunable \\
-\hline
-\end{tabular}
-\end{center}
-
-Band rejection filters are essential for removing unwanted frequency bands, such as periodic noise, while preserving the rest of the image content.
-
-\newpage
-\section*{Notch Filters}
-
-Notch filters are frequency domain filters designed to selectively remove (reject) or pass (retain) specific frequency components, typically to suppress periodic noise or interference in images. They are especially useful for eliminating repetitive patterns or artifacts caused by electrical interference, scanning errors, or other sources of periodic noise.
-
-\subsection*{Types of Notch Filters}
-
-\begin{itemize}
-    \item \textbf{Notch Reject Filter:} Removes a small region (notch) of frequencies centered at specified locations in the frequency domain.
-    \item \textbf{Notch Pass Filter:} Passes only a small region (notch) of frequencies and blocks all others (rarely used in image processing).
-\end{itemize}
-
-\subsection*{General Transfer Function}
-
-For a notch reject filter centered at $(u_k, v_k)$ and its symmetric point $(-u_k, -v_k)$, the transfer function is:
-
-\[
-H(u,v) = \prod_{k=1}^{K} H_k(u,v)
-\]
-
-where $H_k(u,v)$ is the transfer function for the $k$-th notch.
-
-\subsubsection*{Ideal Notch Reject Filter}
-
-\[
-H_k(u,v) = \begin{cases}
-0, & D_k(u,v) \leq D_0 \text{ or } D_{-k}(u,v) \leq D_0 \\
-1, & \text{otherwise}
-\end{cases}
-\]
-where
-\[
-D_k(u,v) = \sqrt{(u-u_k)^2 + (v-v_k)^2}, \quad D_{-k}(u,v) = \sqrt{(u+u_k)^2 + (v+v_k)^2}
-\]
-and $D_0$ is the notch radius.
-
-\subsubsection*{Butterworth Notch Reject Filter}
-
-\[
-H_k(u,v) = \frac{1}{1 + \left(\frac{D_0}{D_k(u,v)}\right)^{2n}} \cdot \frac{1}{1 + \left(\frac{D_0}{D_{-k}(u,v)}\right)^{2n}}
-\]
-where $n$ is the filter order.
-
-\subsubsection*{Gaussian Notch Reject Filter}
-
-\[
-H_k(u,v) = 1 - \exp\left(-\frac{1}{2}\left(\frac{D_k(u,v)}{D_0}\right)^2\right) \cdot 1 - \exp\left(-\frac{1}{2}\left(\frac{D_{-k}(u,v)}{D_0}\right)^2\right)
-\]
-
-\subsection*{Application Steps}
-
-\begin{enumerate}
-    \item Identify the locations $(u_k, v_k)$ of unwanted periodic noise in the frequency spectrum (usually visible as bright spots in the DFT magnitude).
-    \item Construct the notch filter $H(u,v)$ using the desired type (ideal, Butterworth, or Gaussian) and appropriate parameters ($D_0$, $n$).
-    \item Multiply the DFT of the image by $H(u,v)$.
-    \item Perform the inverse DFT to obtain the filtered image.
-\end{enumerate}
-
-\subsection*{Mathematica Example: Butterworth Notch Reject Filter}
-
+\textbf{2. Gaussian Band Reject Filter}
 \begin{verbatim}
-(* Example: Butterworth Notch Reject Filter *)
-notchCenters = {{u1, v1}, {-u1, -v1}}; (* Replace with actual coordinates *)
-D0 = 10; n = 2;
-filterNotch = Table[
-    Times @@ (
-        1 / (1 + (D0 / Sqrt[(u - uc)^2 + (v - vc)^2] + 0.00001)^(2*n)) & /@ notchCenters
-    ),
-    {u, 0, P-1}, {v, 0, Q-1}
-];
+GaussianBandRejectFilter[img_, D0_, W_] := Module[
+    {data, rows, cols, P, Q, paddedData, centeredData, 
+    F, H, d, G, gInverse, gReal, finalData, result},
+    data = ImageData[ColorConvert[img, "Grayscale"]];
+    {rows, cols} = Dimensions[data];
+    P = 2*rows; Q = 2*cols;
+    paddedData = ArrayPad[data, {{0, rows}, {0, cols}}];
+    centeredData = Table[paddedData[[x, y]]*(-1)^(x + y), {x, 1, P}, 
+    {y, 1, Q}];
+    F = Fourier[centeredData, FourierParameters -> {1, -1}];
+    H = Table[
+        d = Sqrt[(u - P/2)^2 + (v - Q/2)^2];
+        If[d == 0, 1, 1 - Exp[-0.5*((d^2 - D0^2)/(d*W))^2]],
+        {u, 1, P}, {v, 1, Q}
+    ];
+    G = F*H;
+    gInverse = InverseFourier[G, FourierParameters -> {1, -1}];
+    gReal = Re[gInverse];
+    finalData = Table[gReal[[x, y]]*(-1)^(x + y), {x, 1, P}, {y, 1, Q}];
+    result = Take[finalData, {1, rows}, {1, cols}];
+    Image[result]
+]
 \end{verbatim}
 
-\subsection*{Visualization}
+\textbf{3. Butterworth Band Reject Filter}
+\begin{verbatim}
+ButterworthBandRejectFilter[img_, D0_, W_, n_] := Module[
+    {data, rows, cols, P, Q, paddedData, centeredData, 
+    F, H, d, denom, G, gInverse, gReal, finalData, result},
+    data = ImageData[ColorConvert[img, "Grayscale"]];
+    {rows, cols} = Dimensions[data];
+    P = 2*rows; Q = 2*cols;
+    paddedData = ArrayPad[data, {{0, rows}, {0, cols}}];
+    centeredData = Table[paddedData[[x, y]]*(-1)^(x + y), 
+    {x, 1, P}, {y, 1, Q}];
+    F = Fourier[centeredData, FourierParameters -> {1, -1}];
+    H = Table[
+        d = Sqrt[(u - P/2)^2 + (v - Q/2)^2];
+        denom = (d^2 - D0^2) + 0.00001;
+        1/(1 + ((d*W)/denom)^(2*n)),
+        {u, 1, P}, {v, 1, Q}
+    ];
+    G = F*H;
+    gInverse = InverseFourier[G, FourierParameters -> {1, -1}];
+    gReal = Re[gInverse];
+    finalData = Table[gReal[[x, y]]*(-1)^(x + y), {x, 1, P}, {y, 1, Q}];
+    result = Take[finalData, {1, rows}, {1, cols}];
+    Image[result]
+]
+\end{verbatim}
 
-\begin{center}
-\begin{tikzpicture}[scale=1.1]
-    % Frequency domain axes
-    \draw[->] (0,0) -- (5.5,0) node[right] {$u$};
-    \draw[->] (0,0) -- (0,5.5) node[above] {$v$};
-    % Notch locations
-    \filldraw[red] (2,3) circle (0.15) node[above right] {$(u_1, v_1)$};
-    \filldraw[red] (3,2) circle (0.15) node[below left] {$(-u_1, -v_1)$};
-    % Notch regions
-    \draw[red,thick] (2,3) circle (0.5);
-    \draw[red,thick] (3,2) circle (0.5);
-    % Center
-    \filldraw[black] (2.5,2.5) circle (0.07) node[below left] {Center};
-    % Label
-    \node at (4.2,5) {Notch Reject Filter};
-\end{tikzpicture}
-\end{center}
+\textbf{4. Ideal Band Pass Filter}
+\begin{verbatim}
+IdealBandPassFilter[img_, D0_, W_] := Module[
+    {data, rows, cols, P, Q, paddedData, centeredData, 
+    F, H, d, G, gInverse, gReal, finalData, result},
+    data = ImageData[ColorConvert[img, "Grayscale"]];
+    {rows, cols} = Dimensions[data];
+    P = 2*rows; Q = 2*cols;
+    paddedData = ArrayPad[data, {{0, rows}, {0, cols}}];
+    centeredData = Table[paddedData[[x, y]]*(-1)^(x + y), 
+    {x, 1, P}, {y, 1, Q}];
+    F = Fourier[centeredData, FourierParameters -> {1, -1}];
+    H = Table[
+        d = Sqrt[(u - P/2)^2 + (v - Q/2)^2];
+        If[D0 - W/2 <= d <= D0 + W/2, 1, 0],
+        {u, 1, P}, {v, 1, Q}
+    ];
+    G = F*H;
+    gInverse = InverseFourier[G, FourierParameters -> {1, -1}];
+    gReal = Re[gInverse];
+    finalData = Table[gReal[[x, y]]*(-1)^(x + y), {x, 1, P}, 
+    {y, 1, Q}];
+    result = Take[finalData, {1, rows}, {1, cols}];
+    Image[result]
+]
+\end{verbatim}
+
+\textbf{5. Gaussian Band Pass Filter}
+\begin{verbatim}
+GaussianBandPassFilter[img_, D0_, W_] := Module[
+    {data, rows, cols, P, Q, paddedData, centeredData, 
+    F, H, d, G, gInverse, gReal, finalData, result},
+    data = ImageData[ColorConvert[img, "Grayscale"]];
+    {rows, cols} = Dimensions[data];
+    P = 2*rows; Q = 2*cols;
+    paddedData = ArrayPad[data, {{0, rows}, {0, cols}}];
+    centeredData = Table[paddedData[[x, y]]*(-1)^(x + y), {x, 1, P}, 
+    {y, 1, Q}];
+    F = Fourier[centeredData, FourierParameters -> {1, -1}];
+    H = Table[
+        d = Sqrt[(u - P/2)^2 + (v - Q/2)^2];
+        If[d == 0, 0, Exp[-0.5*((d^2 - D0^2)/(d*W))^2]],
+        {u, 1, P}, {v, 1, Q}
+    ];
+    G = F*H;
+    gInverse = InverseFourier[G, FourierParameters -> {1, -1}];
+    gReal = Re[gInverse];
+    finalData = Table[gReal[[x, y]]*(-1)^(x + y), {x, 1, P}, {y, 1, Q}];
+    result = Take[finalData, {1, rows}, {1, cols}];
+    Image[result]
+]
+\end{verbatim}
+
+\textbf{6. Butterworth Band Pass Filter}
+\begin{verbatim}
+ButterworthBandPassFilter[img_, D0_, W_, n_] := Module[
+    {data, rows, cols, P, Q, paddedData, centeredData, 
+    F, H, d, denom, G, gInverse, gReal, finalData, result},
+    data = ImageData[ColorConvert[img, "Grayscale"]];
+    {rows, cols} = Dimensions[data];
+    P = 2*rows; Q = 2*cols;
+    paddedData = ArrayPad[data, {{0, rows}, {0, cols}}];
+    centeredData = Table[paddedData[[x, y]]*(-1)^(x + y), 
+    {x, 1, P}, {y, 1, Q}];
+    F = Fourier[centeredData, FourierParameters -> {1, -1}];
+    H = Table[
+        d = Sqrt[(u - P/2)^2 + (v - Q/2)^2];
+        denom = (d^2 - D0^2) + 0.00001;
+        1 - 1/(1 + ((d*W)/denom)^(2*n)),
+        {u, 1, P}, {v, 1, Q}
+    ];
+    G = F*H;
+    gInverse = InverseFourier[G, FourierParameters -> {1, -1}];
+    gReal = Re[gInverse];
+    finalData = Table[gReal[[x, y]]*(-1)^(x + y), {x, 1, P}, {y, 1, Q}];
+    result = Take[finalData, {1, rows}, {1, cols}];
+    Image[result]
+]
+\end{verbatim}
+
+\textbf{7. Butterworth Notch Filter}
+\begin{verbatim}
+ButterworthNotchFilter[img_, centers_, D0_, n_] := Module[
+    {data, rows, cols, P, Q, paddedData, centeredData, 
+    F, H, d1, d2, G, gInverse, gReal, finalData, result},
+    data = ImageData[ColorConvert[img, "Grayscale"]];
+    {rows, cols} = Dimensions[data];
+    P = 2*rows; Q = 2*cols;
+    paddedData = ArrayPad[data, {{0, rows}, {0, cols}}];
+    centeredData = Table[paddedData[[x, y]]*(-1)^(x + y), {x, 1, P}, 
+    {y, 1, Q}];
+    F = Fourier[centeredData, FourierParameters -> {1, -1}];
+    H = Table[
+        Product[
+            d1 = Sqrt[(u - P/2 - c[[1]])^2 + (v - Q/2 - c[[2]])^2];
+            d2 = Sqrt[(u - P/2 + c[[1]])^2 + (v - Q/2 + c[[2]])^2];
+            If[d1*d2 == 0, 0, 1/(1 + (D0^2/(d1*d2))^n)],
+            {c, centers}
+        ],
+        {u, 1, P}, {v, 1, Q}
+    ];
+    G = F*H;
+    gInverse = InverseFourier[G, FourierParameters -> {1, -1}];
+    gReal = Re[gInverse];
+    finalData = Table[gReal[[x, y]]*(-1)^(x + y), {x, 1, P}, {y, 1, Q}];
+    result = Take[finalData, {1, rows}, {1, cols}];
+    Image[result]
+]
+\end{verbatim}
+
+\textbf{Usage Example:}
+\begin{verbatim}
+img = Import["ExampleData/lena.tif"];
+D0 = 60; W = 30; n = 2;
+notchCenters = {{40, 40}, {40, -40}}; notchRadius = 10;
+
+outIdealBR = IdealBandRejectFilter[img, D0, W];
+outGaussBR = GaussianBandRejectFilter[img, D0, W];
+outButterBR = ButterworthBandRejectFilter[img, D0, W, n];
+outIdealBP = IdealBandPassFilter[img, D0, W];
+outGaussBP = GaussianBandPassFilter[img, D0, W];
+outButterBP = ButterworthBandPassFilter[img, D0, W, n];
+outNotch = ButterworthNotchFilter[img, notchCenters, notchRadius, n];
+
+(* Display results in a grid *)
+LabelImg[image_, text_] := Column[{image, Style[text, 
+FontFamily -> "Helvetica", 12, Gray]}, Center];
+Grid[{
+    {LabelImg[img, "Original Image"], 
+    LabelImg[outNotch, "7. Notch Filter"]},
+    {LabelImg[outIdealBR, "1. Ideal Band Reject"], 
+    LabelImg[outGaussBR, "2. Gaussian Band Reject"]},
+    {LabelImg[outButterBR, "3. Butterworth Band Reject"], SpanFromLeft},
+    {LabelImg[outIdealBP, "4. Ideal Band Pass"], 
+    LabelImg[outGaussBP, "5. Gaussian Band Pass"]},
+    {LabelImg[outButterBP, "6. Butterworth Band Pass"], SpanFromLeft}
+}, Frame -> All, Spacings -> {1, 1}, Alignment -> Center]
+\end{verbatim}
 
 \subsection*{Summary}
 
@@ -2403,47 +2431,47 @@ filterNotch = Table[
 
 \newpage
 
-\section*{Frequency Domain Filtering: When to Use Which Filter}
+\section*{Quick Reference: Which Frequency Domain Filter to Use?}
 
 \begin{center}
-\begin{tabular}{|L{3.5cm}|L{4cm}|L{4.5cm}|L{3.5cm}|}
+\begin{tabular}{|L{3.5cm}|L{4cm}|L{5cm}|L{3.5cm}|}
 \hline
-\textbf{Image Problem / Goal} & \textbf{Recommended Filter Type} & \textbf{Effect / Rationale} & \textbf{Key Parameters} \\
+\textbf{Scenario / Problem} & \textbf{Recommended Filter} & \textbf{Effect / Rationale} & \textbf{Typical Parameters} \\
 \hline
-General smoothing, noise reduction & \textbf{Gaussian Low Pass} & Smooths image, minimal ringing, natural blur & Cutoff $D_0$ (controls blur) \\
+General smoothing, noise reduction & \textbf{Gaussian Low Pass} & Smooths image, minimal ringing, natural blur & $D_0 = 10$--$50$ (depends on image size) \\
 \hline
-Aggressive smoothing, theoretical analysis & \textbf{Ideal Low Pass} & Removes all frequencies above cutoff, but causes ringing & Cutoff $D_0$ \\
+Aggressive smoothing, theoretical study & \textbf{Ideal Low Pass} & Removes all frequencies above cutoff, but causes ringing & $D_0 = 10$--$50$ \\
 \hline
-Smoothing with tunable sharpness & \textbf{Butterworth Low Pass} & Adjustable transition, balance between ideal and Gaussian & Cutoff $D_0$, order $n$ \\
+Smoothing with adjustable sharpness & \textbf{Butterworth Low Pass} & Tunable transition, balance between ideal and Gaussian & $D_0 = 10$--$50$, $n = 2$--$4$ \\
 \hline
-Edge enhancement, detail sharpening & \textbf{Gaussian High Pass} & Enhances edges, smooth transition, minimal artifacts & Cutoff $D_0$ \\
+Edge enhancement, detail sharpening & \textbf{Gaussian High Pass} & Enhances edges, smooth transition, minimal artifacts & $D_0 = 10$--$50$ \\
 \hline
-Strong edge enhancement, theoretical study & \textbf{Ideal High Pass} & Sharp cutoff, strong edge emphasis, severe ringing & Cutoff $D_0$ \\
+Strong edge enhancement, theoretical & \textbf{Ideal High Pass} & Sharp cutoff, strong edge emphasis, severe ringing & $D_0 = 10$--$50$ \\
 \hline
-Sharpening with tunable sharpness & \textbf{Butterworth High Pass} & Adjustable edge enhancement, less ringing than ideal & Cutoff $D_0$, order $n$ \\
+Sharpening with tunable sharpness & \textbf{Butterworth High Pass} & Adjustable edge enhancement, less ringing than ideal & $D_0 = 10$--$50$, $n = 2$--$4$ \\
 \hline
-General sharpening, edge boost & \textbf{Unsharp Masking / Highboost} & Adds scaled high-frequency detail, flexible control & $k$ (scaling), $D_0$ (Gaussian cutoff) \\
+Controlled sharpening, edge boost & \textbf{Unsharp Masking / Highboost} & Adds scaled high-frequency detail, flexible control & $k_1 = 1$, $k_2 = 0.5$--$1$, $D_0 = 20$--$70$ \\
 \hline
-Fine detail enhancement & \textbf{Laplacian (Frequency Domain)} & Highlights rapid intensity changes, isotropic & -- \\
+Fine detail enhancement & \textbf{Laplacian (Frequency Domain)} & Highlights rapid intensity changes, isotropic & No parameter (or scale $H(u,v)$ as needed) \\
 \hline
-Remove periodic noise (e.g., stripes, interference) & \textbf{Band Reject / Notch Filter} & Suppresses specific frequency bands or points & Center $D_0$, bandwidth $W$, order $n$, notch locations \\
+Remove periodic noise (stripes, interference) & \textbf{Band Reject / Notch Filter} & Suppresses specific frequency bands or points & $D_0 =$ distance to noise, $W =$ width, $n = 2$--$4$ \\
 \hline
-Match image frequency characteristics to reference & \textbf{Histogram Matching (Spatial Domain)} & Not a frequency filter; use when matching overall appearance & -- \\
+Enhance features in a frequency range & \textbf{Band Pass Filter} & Keeps only desired frequency band & $D_0 =$ center, $W =$ width, $n = 2$--$4$ \\
 \hline
 \end{tabular}
 \end{center}
 
 \begin{itemize}
-    \item \textbf{Low Pass Filters:} Use for smoothing, denoising, and removing fine detail.
-    \item \textbf{High Pass Filters:} Use for sharpening, edge detection, and enhancing fine detail.
+    \item \textbf{Low Pass:} Use for denoising and smoothing. Gaussian is safest for natural images.
+    \item \textbf{High Pass:} Use for sharpening and edge enhancement. Gaussian or Butterworth preferred.
     \item \textbf{Band Reject/Notch:} Use to remove periodic or localized frequency noise.
-    \item \textbf{Unsharp/Highboost:} Use for controlled sharpening with adjustable strength.
-    \item \textbf{Laplacian:} Use for isotropic edge enhancement or as a component in advanced sharpening.
+    \item \textbf{Unsharp/Highboost:} Use for controlled sharpening with $k_2$ for strength.
+    \item \textbf{Laplacian:} Use for isotropic edge enhancement.
+    \item \textbf{Parameter choice:} $D_0$ should be $\sim$2--10\% of image diagonal for most images; $n=2$ is a good default for Butterworth.
 \end{itemize}
 
 \newpage
 \section*{Color Image Processing}
-\subsection*{Color Image Processing in Mathematica}
 
 This section demonstrates how to process color images in Mathematica, including color space conversion, channel separation, intensity transformations, color segmentation, and color balancing. Each example is accompanied by code and explanations.
 
