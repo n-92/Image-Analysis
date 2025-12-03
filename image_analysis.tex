@@ -5,6 +5,8 @@
 \usepackage{tikz}
 \usepackage{booktabs}
 \usepackage{array}
+\usepackage{tcolorbox}
+
 \newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
 \usetikzlibrary{calc}
 \geometry{a4paper, margin=1in}
@@ -2392,6 +2394,21 @@ ButterworthNotchFilter[img_, centers_, D0_, n_] := Module[
 \end{verbatim}
 
 \textbf{Usage Example:}
+
+\begin{tcolorbox}
+
+\begin{verbatim}
+(* Some helper functions *)
+ImagePeriodogram[imgGray]
+centers = {{114, 43}, {52, 205}, {55, 41}, {109, 207}, 
+    {112, 85}, {110, 165}, {56, 81}, {53, 161}};
+{w, h} = ImageDimensions[img];
+imageCenter = {w/2, h/2};
+finalCenters = Map[Reverse[# - imageCenter]*2 &, centers];
+finalCenters // MatrixForm
+\end{verbatim}
+\end{tcolorbox}
+
 \begin{verbatim}
 img = Import["ExampleData/lena.tif"];
 D0 = 60; W = 30; n = 2;
@@ -2429,7 +2446,6 @@ Grid[{
     \item The process involves identifying noise frequencies, constructing the filter, applying it in the frequency domain, and transforming back to the spatial domain.
 \end{itemize}
 
-\newpage
 
 \section*{Quick Reference: Which Frequency Domain Filter to Use?}
 
