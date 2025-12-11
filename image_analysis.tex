@@ -1175,6 +1175,168 @@ Sharpening (Highpass Filters) & Unsharp Masking / Highboost & Sharpens image det
 \end{tabular}
 \end{center}
 
+
+\newpage
+\section*{Mathematica Image Processing Code Reference}
+
+Below is a summary of key Mathematica code snippets for image processing, covering spatial filtering, intensity transformations, histogram techniques, noise reduction, and image resizing.
+
+\subsection*{Spatial Filtering and Sharpening}
+
+\begin{verbatim}
+// Unsharp Masking and Highboost Filtering
+blurfactor = GaussianMatrix[{8,2.6}];
+originalImage = ImageData[i7];
+blurredImage = ImageConvolve[i7, blurfactor];
+mask = originalImage - ImageData[blurredImage];
+Image[originalImage + 4.5 * maskNumeric]
+Manipulate[Image[originalImage + k * maskNumeric], {k, 1, 100}];
+
+// Sobel Operators (First Order Derivatives)
+s1 = {{-1, -2, -1}, {0, 0, 0}, {1, 2, 1}};
+s2 = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}};
+i8x = ImageConvolve[i8, s1];
+i8y = ImageConvolve[i8, s2];
+Ax = ImageData[i8x];
+Ay = ImageData[i8y];
+AG = Rescale[Sqrt[Ax^2 + Ay^2]];
+Image[AG]
+
+// Laplacian Transform (Second Order Derivatives)
+Grid[{{i6, ImageDifference[i6, LaplacianFilter[i6, 10]]}}, Frame -> All]
+
+// Median Filter
+Manipulate[MedianFilter[i5, r], {r, 1, 10, 1}]
+\end{verbatim}
+
+\subsection*{Image Padding Effects}
+
+\begin{verbatim}
+ImageConvolve[i1, GaussianFilter[1, 1], Padding -> Reflected];
+v1 = ImageConvolve[, GaussianMatrix[{21, 7}], Padding -> "Reversed"];
+v2 = ImageConvolve[, GaussianMatrix[{21, 7}], Padding -> "Reflected"];
+v3 = ImageConvolve[, GaussianMatrix[{21, 7}], Padding -> "Periodic"];
+v4 = ImageConvolve[, GaussianMatrix[{21, 7}], Padding -> "Fixed"];
+v5 = ImageConvolve[, GaussianMatrix[{21, 7}], Padding -> 0];
+Grid[{{"Reversed", "Reflected", "Periodic", "Fixed", "0"}, {v1, v2, v3, v4, v5}}, Frame -> All]
+\end{verbatim}
+
+\subsection*{Low Pass Filtering and Thresholding}
+
+\begin{verbatim}
+lowPassFiltered = ImageConvolve[i3, GaussianMatrix[{16, 5.5}]]
+Binarize[lowPassFiltered, 0.2]
+\end{verbatim}
+
+\subsection*{Image Resizing}
+
+\begin{verbatim}
+i1Dat = ImageData[i1];
+reducedI1 = i1Dat[[2 ;; ;; 2, 2 ;; ;; 2]];
+Image[reducedI1]
+ImageConvolve[Image@reducedI1, GaussianMatrix[{21, 7}], Padding -> "Periodic"]
+ImageConvolve[i1, GaussianMatrix[{21, 7}], Padding -> "Periodic"]
+\end{verbatim}
+
+\subsection*{Box and Gaussian Smoothing}
+
+\begin{verbatim}
+three = BoxMatrix[1]
+eleven = BoxMatrix[5];
+twentyone = BoxMatrix[10];
+ImageConvolve[i1, three / 9]
+ImageConvolve[i1, eleven / 121]
+ImageConvolve[i1, twentyone / (21 * 21)]
+ImageConvolve[i1, GaussianMatrix[{10, 3.5}]]
+ImageConvolve[i1, GaussianMatrix[{21, 7}]]
+\end{verbatim}
+
+\subsection*{Histogram Processing}
+
+\begin{verbatim}
+ImageHistogram[dice]
+ImageFilter[If[Mean[Flatten[#]] > 0.12 
+    && Mean[Flatten[#]] < 0.22, 6 * #[[3, 3]], #[[3, 3]]] &, dice, 2]
+HistogramTransform[i7, i8]
+Grid[{{ImageHistogram[i7]}, {ImageHistogram[i9]}}]
+HistogramTransform[i2]
+ImageHistogram[i2t, "Byte", FrameTicks -> Automatic]
+\end{verbatim}
+
+\subsection*{Intensity Level Slicing and Contrast Stretching}
+
+\begin{verbatim}
+f[x_] := Which[x < 50, 10, 120 >= x >= 50, 100, x > 120, 10];
+sliced = Map[f, imageData, {2}];
+Image[sliced, "Byte"]
+f2[x_] := Which[x < 50, x, 120 >= x >= 50, 200, x > 120, x];
+sliced2 = Map[f2, imageData, {2}];
+Image[sliced2, "Byte"]
+
+fstretch[x_] := Which[x <= 9, 0, x >= 81, 255, True, (255 / 72) * x - 255 / 8];
+stretched = Map[f2, i3Data, {2}]
+Image[stretched, "Byte"]
+fstretch2[x_] := Which[x < N[L / 4], 0.5 * x, x > N[3 * L / 4],
+     x * 0.5 + 0.5 * L, True, -0.25 * L + 1.5 * x];
+stretched2 = Map[fstretch2, i3Data, {2}];
+Image[stretched2, "Byte"]
+fstretch3 = Map[If[# < 9, 0, ((L - 1) * # / (81 - 9)) - (L - 1) * 9 / (81 - 9)] &
+    ,i3Data, {2}];
+Image[fstretch3, "Byte"]
+\end{verbatim}
+
+\subsection*{Log Transformation and Negation}
+
+\begin{verbatim}
+f[x_] := (255 / Log[255]) * Log[1 + x];
+logTransformed = Map[f, imgData, {2}];
+Image[logTransformed, "Byte"]
+
+ColorNegate[i1]
+i1DatFlipped = 1 - i1Dat
+Image[i1DatFlipped]
+\end{verbatim}
+
+\subsection*{Thresholding and Histogram Plotting}
+
+\begin{verbatim}
+threshold[x_] := Which[x > 0.5, 0, True, 1];
+Manipulate[Image@Map[Which[# > k, 1, True, 0] &, iDat, {2}], {k, 0, 1, 0.05}]
+i2Dat = Counts@Flatten@ImageData[i, "Byte"]
+ListPlot[i2Dat, FrameTicks -> Automatic, Filling -> Axis]
+\end{verbatim}
+
+\subsection*{Gaussian Noise and Averaging}
+
+\begin{verbatim}
+noisy = nebulaData + RandomVariate[NormalDistribution[0, 64], Dimensions[nebulaData]];
+Image[noisy, "Byte"]
+rescaledNebulaNoisy = 255 * (noisy - Min[noisy]) / (Max[noisy] - Min[noisy]);
+Image[rescaledNebulaNoisy, "Byte"]
+
+AddNoise[A0_] := Module[{A = A0, B},
+    B = A + RandomVariate[NormalDistribution[0, 64], Dimensions[A]];
+    B = 255 * (B - Min[B]) / (Max[B] - Min[B])
+];
+BList = Table[AddNoise[nebulaData], {i, 20}];
+BListMean = Mean[BList];
+BListMeanRescaled = Rescale[BListMean, MinMax@BListMean, {0, 255}];
+Image[BListMeanRescaled, "Byte"]
+\end{verbatim}
+
+\subsection*{Image Dimension Reduction}
+
+\begin{verbatim}
+imageDatX = ImageData[imgX];
+Image[imageDatX[[2;;;;2, 2;; ;;2]]]
+Manipulate[Image[imageDatX[[k;;;;k, k;; ;;k]]], {k, 1, 20, 1}]
+imgDataY = ImageData@Image[imageDatX[[20;;;;20, 20;; ;;20]]];
+Image[Rescale[imgDataY, MinMax@imgDataY, {0, 255}], "Byte"]
+\end{verbatim}
+
+\textbf{Note:} You can perform subtraction, addition, and division directly on image data arrays for custom processing.
+
+
 \newpage
 \section*{Fourier Series Analysis on Images}
 
@@ -2675,4 +2837,562 @@ imgEnhanced = ImageSubtract[img, imgSharp];
 \end{itemize}
 
 \textit{In summary:} \textbf{Bit depth} = (bits per channel) $\times$ (number of channels); \textbf{Number of colors/levels} = $2^{\text{bit depth}}$.
+
+\newpage
+
+\section*{Convolutional Neural Networks (CNNs)}
+
+\begin{center}
+\includegraphics[width=1.0\textwidth]{cnn_arch.png}
+\end{center}
+
+\subsection*{The CNN Process: A 4-Step Summary}
+
+Convolutional Neural Networks (CNNs) process images directly as 2D arrays, preserving spatial relationships. The main steps are:
+
+\begin{enumerate}
+    \item \textbf{Convolution (Feature Extraction):}
+        \begin{itemize}
+            \item Slide a small filter (kernel) over the input image.
+            \item At each position, compute the sum of products between pixel values and kernel weights.
+            \item Produces a \textbf{feature map} highlighting patterns (edges, lines, etc.).
+            \item Multiple kernels yield multiple feature maps.
+        \end{itemize}
+    \item \textbf{Activation (Non-Linearity):}
+        \begin{itemize}
+            \item Add a bias, then apply an activation function (commonly ReLU).
+            \item Introduces non-linearity, helping the network learn complex features.
+        \end{itemize}
+    \item \textbf{Subsampling (Pooling):}
+        \begin{itemize}
+            \item Reduce feature map size for efficiency and robustness.
+            \item Use a window (e.g., $2 \times 2$) to keep the maximum (Max-Pooling) or average (Average Pooling) value.
+        \end{itemize}
+    \item \textbf{Classification (Fully Connected Layer):}
+        \begin{itemize}
+            \item Flatten pooled feature maps into a vector.
+            \item Feed into a fully connected neural network for final classification (e.g., digit "6" vs "0").
+        \end{itemize}
+\end{enumerate}
+
+\subsection*{General Formula for Output Size}
+
+For both convolution and pooling layers, the output size (width or height) is:
+\[
+\text{Output Size} = \left\lfloor \frac{\text{Input} - \text{Kernel} + 2 \times \text{Padding}}{\text{Stride}} \right\rfloor + 1
+\]
+\begin{itemize}
+    \item \textbf{Input:} Size of incoming map.
+    \item \textbf{Kernel:} Size of filter or pooling window.
+    \item \textbf{Padding:} Pixels added to border (often 0).
+    \item \textbf{Stride:} Step size of kernel movement.
+\end{itemize}
+
+\newpage
+\textbf{Examples:}
+\begin{itemize}
+    \item \textbf{Convolution Layer:} Input = 12, Kernel = 5, Padding = 0, Stride = 1
+    \[
+    \frac{12 - 5 + 0}{1} + 1 = 8
+    \]
+    (Output: $8 \times 8$ feature map)
+    \item \textbf{Pooling Layer:} Input = 8, Kernel = 2, Padding = 0, Stride = 2
+    \[
+    \frac{8 - 2 + 0}{2} + 1 = 4
+    \]
+    (Output: $4 \times 4$ pooled map)
+\end{itemize}
+
+\newpage
+\section*{Case Study: Step-by-Step Construction and Evaluation of a CNN in Mathematica (MNIST Example)}
+
+This section summarizes the full workflow for building, training, and evaluating a simple Convolutional Neural Network (CNN) for handwritten digit recognition using the MNIST dataset in Mathematica, as illustrated in the attached code.
+
+\subsection*{1. Load the MNIST Dataset}
+
+\begin{verbatim}
+trainingData = ResourceData["MNIST", "TrainingData"];
+testData = ResourceData["MNIST", "TestData"];
+Length[testData]  (* Output: 10000 *)
+\end{verbatim}
+
+\subsection*{2. Explore Data and Prepare Encoders}
+
+\begin{verbatim}
+sample = testData[[1]];
+img = Keys[sample][[1]];
+ImageDimensions[img]  (* Output: {28, 28} *)
+enc = NetEncoder[{"Image", {28, 28}, "ColorSpace" -> "Grayscale"}];
+enc[img] // Dimensions  (* Output: {1, 28, 28} *)
+\end{verbatim}
+
+\subsection*{3. Build and Inspect the First CNN Layers}
+
+\begin{verbatim}
+conv1 = ConvolutionLayer[6, 5, "Input" -> {1, 28, 28}];
+conv1 = NetInitialize[conv1];
+activation1 = ElementwiseLayer["ReLU"];
+pooling1 = PoolingLayer[{2, 2}, 2];
+output1 = pooling1[activation1[conv1[enc[img]]]];
+output1 // Length  (* Output: 6 *)
+Image[output1[[1]]]  (* Visualize feature map *)
+output1[[1]] // Dimensions  (* Output: {12, 12} *)
+\end{verbatim}
+
+\subsection*{4. Add a Second Convolutional Block}
+
+\begin{verbatim}
+conv2 = ConvolutionLayer[12, 5, "Input" -> {6, 12, 12}];
+conv2 = NetInitialize[conv2];
+activation2 = ElementwiseLayer["ReLU"];
+pooling2 = PoolingLayer[{2, 2}, 2];
+output2 = pooling2[activation2[conv2[output1]]];
+output2 // Dimensions  (* Output: {12, 4, 4} *)
+Flatten[output2] // Length  (* Output: 192 *)
+\end{verbatim}
+
+\subsection*{5. Assemble the Full CNN}
+
+\begin{verbatim}
+labels = Range[0, 9];
+net1 = NetChain[{
+    ConvolutionLayer[6, 5],     (*Layer 1*)
+    ElementwiseLayer["ReLU"],
+    PoolingLayer[{2, 2}, 2],
+    ConvolutionLayer[12, 5, "Input" -> {6, 12, 12}],   (*Layer 4*)
+    ElementwiseLayer["ReLU"],
+    PoolingLayer[{2, 2}, 2],
+    FlattenLayer[],
+    LinearLayer[192],
+    ElementwiseLayer["ReLU"],
+    LinearLayer[10],
+    SoftmaxLayer[]      (*Layer 11*)
+  },
+  "Input" -> NetEncoder[{"Image", {28, 28}, "ColorSpace" -> "Grayscale"}],
+  "Output" -> NetDecoder[{"Class", labels}]
+]
+\end{verbatim}
+
+\subsection*{6. Train the Network and Monitor Performance}
+
+\begin{verbatim}
+train = NetTrain[net1, trainingData, All, ValidationSet -> testData]
+(* Outputs training/validation loss and error rate per epoch *)
+\end{verbatim}
+
+\subsection*{7. Evaluate the Trained Network}
+
+\begin{verbatim}
+trained = train["TrainedNet"];
+trained[Keys[testData[[1]]]]  (* Predicts digit for a test image *)
+\end{verbatim}
+
+\subsection*{8. Compute Accuracy, Confusion Matrix, and Recall}
+
+\begin{verbatim}
+measurements = NetMeasurements[trained, testData, {"Accuracy", "ConfusionMatrixPlot", "Recall"}];
+measurements[[1]]  (* Accuracy, e.g., 0.9909 *)
+measurements[[2]]  (* Confusion matrix plot *)
+BarChart[measurements[[3]], ChartLabels -> Range[0, 9], 
+  PlotLabel -> "True Positive Rate (Recall) by Digit",
+  AxesLabel -> {"Digit Class", "True Positive Rate"},
+  PlotTheme -> "Detailed",
+  ColorFunction -> "Rainbow",
+  LabelingFunction -> (Placed[Round[#, 0.01], Above] &)
+]
+\end{verbatim}
+
+\subsection*{9. Compare with Pretrained LeNet}
+
+\begin{verbatim}
+testData = ExampleData[{"MachineLearning", "MNIST"}, "TestData"];
+lenet = NetModel["LeNet Trained on MNIST Data"];
+lenetresults = NetMeasurements[lenet, testData, {"Accuracy", "ConfusionMatrixPlot", "Recall"}];
+BarChart[lenetresults[[3]], ChartLabels -> Range[0, 9], 
+  PlotLabel -> "True Positive Rate (Recall) by Digit",
+  AxesLabel -> {"Digit Class", "True Positive Rate"},
+  PlotTheme -> "Detailed",
+  ColorFunction -> "Rainbow",
+  LabelingFunction -> (Placed[Round[#, 0.01], Above] &)
+]
+\end{verbatim}
+
+\subsection*{10. Visualize Learned Kernels}
+
+\begin{verbatim}
+kernelToImage[k_] := Image[Rescale[k]] // ImageResize[#, 50] &;
+weights1 = Normal@NetExtract[trained, {1, "Weights"}];
+kernels1 = kernelToImage /@ Flatten[weights1, 1];
+Row[kernels1, " "]
+
+weights2 = Normal@NetExtract[trained, {4, "Weights"}];
+kernels2 = Map[kernelToImage, weights2, {2}];
+Column[kernels2, " "]
+\end{verbatim}
+
+\subsection*{11. Visualize Feature Maps at Each Stage}
+
+\begin{verbatim}
+vizMaps[data_] := Row[Map[ImageResize[Image[Rescale[#]], {50, 50}] &, Normal[data]], Spacer[2]]
+sampleImage = Keys@testData[[5102]];
+
+featA = NetTake[trained, 2][sampleImage];
+Labeled[vizMaps[featA], "a) Conv1 (6 maps)"]
+
+featB = NetTake[trained, 3][sampleImage];
+Labeled[vizMaps[featB], "b) Pool1 (6 maps)"]
+
+featC = NetTake[trained, 5][sampleImage];
+Labeled[vizMaps[featC], "c) Conv2 (12 maps)"]
+
+featD = NetTake[trained, 6][sampleImage];
+Labeled[vizMaps[featD], "d) Pool2 (12 maps)"]
+
+featE = NetTake[trained, 7][sampleImage];
+Labeled[BarChart[featE, PlotTheme -> "Business", ImageSize -> 500, AspectRatio -> 1/4, PlotLabel -> "Flattening", AxesLabel -> {"Neuron Index", "Activation Value"}], "Layer 7 Output"]
+
+featF = Normal@NetTake[trained, 8][sampleImage];
+Labeled[BarChart[featF, PlotTheme -> "Business", ImageSize -> 500, AspectRatio -> 1/4, PlotLabel -> "Activity of Hidden Layer Neurons (192 units)", AxesLabel -> {"Neuron Index", "Activation Value"}], "Layer 8 Output"]
+
+featG = Normal@NetTake[trained, 9][sampleImage];
+Labeled[BarChart[featG, PlotTheme -> "Business", ImageSize -> 500, AspectRatio -> 1/4, PlotLabel -> "Relu (192 units)", AxesLabel -> {"Neuron Index", "Activation Value"}], "Layer 9 Output"]
+
+featH = NetTake[trained, 10][sampleImage];
+featI = NetTake[trained, 11][sampleImage];
+\end{verbatim}
+
+\subsection*{Summary}
+
+This workflow demonstrates:
+\begin{itemize}
+    \item Loading and preparing image data for CNNs.
+    \item Building and visualizing each layer's output (feature maps, pooling, flattening).
+    \item Training and evaluating a CNN, including accuracy and confusion matrix.
+    \item Comparing with a reference model (LeNet).
+    \item Visualizing learned kernels and feature activations at each stage.
+\end{itemize}
+
+\newpage
+\section*{Artificial Neural Networks (ANNs)}
+
+Artificial Neural Networks (ANNs) are computational models inspired by the structure and function of biological neural networks. They consist of interconnected nodes (neurons) organized in layers, which process input data and learn complex patterns through training.
+
+\subsection*{ANN Architecture Example}
+
+The following diagram illustrates a simple feedforward neural network with two input nodes, a hidden layer with two neurons, and one output node. This architecture is commonly used for tasks such as binary classification (e.g., XOR problem).
+
+\begin{center}
+\begin{tikzpicture}[scale=1.2, node distance=1.5cm, >=stealth]
+    % Input layer
+    \node[circle,draw,fill=blue!10] (x1) at (0,0) {$x_1$};
+    \node[circle,draw,fill=blue!10] (x2) at (0,-2) {$x_2$};
+
+    % Hidden layer
+    \node[circle,draw,fill=green!10] (h1) at (3,0.5) {$n_3$};
+    \node[circle,draw,fill=green!10] (h2) at (3,-2.5) {$n_4$};
+
+    % Output layer
+    \node[circle,draw,fill=red!10] (out) at (6,-1) {$n_5$};
+
+    % Connections: input to hidden
+    \draw[->,thick] (x1) -- node[above,sloped,midway] {$w_{13}$} (h1);
+    \draw[->,thick] (x2) -- node[below,sloped,midway] {$w_{23}$} (h1);
+    \draw[->,thick] (x1) -- node[above,sloped,midway] {$w_{14}$} (h2);
+    \draw[->,thick] (x2) -- node[below,sloped,midway] {$w_{24}$} (h2);
+
+    % Connections: hidden to output
+    \draw[->,thick] (h1) -- node[above,sloped,midway] {$w_{35}$} (out);
+    \draw[->,thick] (h2) -- node[below,sloped,midway] {$w_{45}$} (out);
+
+    % Layer labels
+    \node[above] at (0,1) {\textbf{Input Layer}};
+    \node[above] at (3,1.5) {\textbf{Hidden Layer}};
+    \node[above] at (6,0.5) {\textbf{Output Layer}};
+\end{tikzpicture}
+\end{center}
+
+\subsection*{How ANNs Work}
+
+\begin{itemize}
+    \item \textbf{Input Layer:} Receives raw data (e.g., pixel values, features).
+    \item \textbf{Hidden Layer(s):} Each neuron computes a weighted sum of its inputs, applies an activation function (e.g., sigmoid), and passes the result forward.
+    \item \textbf{Output Layer:} Produces the final prediction or classification.
+    \item \textbf{Weights:} Connections between neurons have adjustable weights ($w_{ij}$) that are learned during training.
+    \item \textbf{Activation Functions:} Nonlinear functions (e.g., sigmoid, ReLU) allow the network to model complex relationships.
+    \item \textbf{Training:} The network learns by adjusting weights to minimize the error between predicted and target outputs, typically using backpropagation and gradient descent.
+\end{itemize}
+
+\subsection*{Example: Solving XOR with ANN}
+
+The reference code implements a simple ANN to solve the XOR problem:
+\begin{itemize}
+    \item Two inputs ($x_1$, $x_2$).
+    \item Two hidden neurons ($n_3$, $n_4$) with sigmoid activation.
+    \item One output neuron ($n_5$) with sigmoid activation.
+    \item Weights are updated using backpropagation to minimize output error.
+\end{itemize}
+
+\subsection*{Reference Python code}
+
+% Reference Python code: Simple ANN for XOR
+
+\begin{verbatim}
+import math
+
+# Activation functions
+def sign(a):
+    if a >= 0:
+        return 1
+    else:
+        return -1
+
+def sigmoid(a):
+    return 1 / (1 + math.exp(-a))
+
+# Input nodes
+def n1(x1):
+    return x1
+
+def n2(x2):
+    return x2
+
+# Hidden layer nodes
+def n3(w23, w13, x1, x2):
+    return sigmoid(w23 * n2(x2) + w13 * n1(x1))
+
+def n4(w14, w24, x1, x2):
+    return sigmoid(w14 * n1(x1) + w24 * n2(x2))
+
+# Output node
+def n5(w35, w45, o3, o4):
+    return sigmoid(w35 * o3 + w45 * o4)
+
+# Wrapper for network output
+def nnOutput(x1, x2):
+    return n5(w35, w45, n3(w23, w13, x1, x2), n4(w14, w24, x1, x2))
+
+# Initial weights
+w13 = 1
+w14 = 2.12
+w23 = 4.66
+w24 = 0.25
+w35 = -0.98
+w45 = 11.45
+
+# Learning rate
+l = 0.4
+
+def updateWeights(x1, x2, correct_value):
+    global w13, w14, w23, w24, w35, w45
+    o3 = n3(w23, w13, x1, x2)
+    o4 = n4(w14, w24, x1, x2)
+    current_out = nnOutput(x1, x2)
+    error = correct_value - current_out
+    w35 = w35 + l * error * o3
+    w45 = w45 + l * error * o4
+    w13 = w13 + l * (w35 * error) * n1(x1)
+    w14 = w14 + l * (w45 * error) * n1(x1)
+    w23 = w23 + l * (w35 * error) * n2(x2)
+    w24 = w24 + l * (w45 * error) * n2(x2)
+
+# Training loop for XOR
+for i in range(100):
+    updateWeights(0, 0, 0)
+    updateWeights(0, 1, 1)
+    updateWeights(1, 0, 1)
+    updateWeights(1, 1, 0)
+
+# Final evaluation
+print("Input(0,0) ->", nnOutput(0, 0)) # Target: ~0
+print("Input(0,1) ->", nnOutput(0, 1)) # Target: ~1
+print("Input(1,0) ->", nnOutput(1, 0)) # Target: ~1
+print("Input(1,1) ->", nnOutput(1, 1)) # Target: ~0
+\end{verbatim}
+
+\section*{Mathematica Example: Building and Training a Neural Network for Classification}
+
+Mathematica provides a high-level interface for constructing, training, and evaluating neural networks. Below is a pedagogical example using the classic Iris dataset for classification.
+
+\subsection*{Step-by-Step Construction}
+
+\begin{enumerate}
+    \item \textbf{Load the Data:}
+    \begin{verbatim}
+trainingData = ExampleData[{"MachineLearning", "FisherIris"}, "TrainingData"];
+testData = ExampleData[{"MachineLearning", "FisherIris"}, "TestData"];
+    \end{verbatim}
+
+    \item \textbf{Inspect the Data:}
+    \begin{verbatim}
+RandomSample[trainingData, 5]
+labels = Union[Values[trainingData]]
+    \end{verbatim}
+
+    \item \textbf{Build the Neural Network as a Chain:}
+
+    The network is constructed as a sequence (\texttt{NetChain}) of layers:
+    \begin{itemize}
+        \item \textbf{LinearLayer:} Fully connected layer.
+        \item \textbf{ElementwiseLayer["ReLU"]:} Activation function.
+        \item \textbf{SoftmaxLayer:} Converts outputs to probabilities.
+        \item \textbf{NetDecoder:} Maps output indices to class labels.
+    \end{itemize}
+
+    \begin{verbatim}
+net = NetChain[{
+    LinearLayer[10],
+    ElementwiseLayer["ReLU"],
+    LinearLayer[20],
+    ElementwiseLayer["ReLU"],
+    LinearLayer[3],
+    SoftmaxLayer[]
+  },
+  "Input" -> 4,
+  "Output" -> NetDecoder[{"Class", labels}]
+]
+    \end{verbatim}
+
+    \item \textbf{Train the Network:}
+    \begin{verbatim}
+results = NetTrain[net, trainingData, All, ValidationSet -> testData];
+trainedNet = results["TrainedNet"];
+    \end{verbatim}
+
+    \item \textbf{Evaluate Performance:}
+    \begin{verbatim}
+NetMeasurements[trainedNet, testData, "Accuracy"]
+NetMeasurements[trainedNet, testData, "ConfusionMatrixPlot"]
+    \end{verbatim}
+
+    \item \textbf{Make Predictions:}
+    \begin{verbatim}
+trainedNet[{5.1, 3.5, 1.4, 0.2}]
+    \end{verbatim}
+\end{enumerate}
+
+\subsection*{Key Points}
+
+\begin{itemize}
+    \item \textbf{Layer Chaining:} \texttt{NetChain} allows you to build a neural network as a sequence of layers, mirroring the conceptual flow from input to output.
+    \item \textbf{Activation and Output:} Nonlinear activations (ReLU) and softmax output are standard for classification.
+    \item \textbf{Decoder:} \texttt{NetDecoder} maps numeric outputs to human-readable class labels.
+    \item \textbf{Training and Evaluation:} \texttt{NetTrain} and \texttt{NetMeasurements} provide a complete workflow for supervised learning.
+\end{itemize}
+
+\bigskip
+
+\textbf{Summary:} Mathematica's neural network framework enables rapid prototyping and experimentation, with clear chaining of layers and integrated training/evaluation tools.
+
+\newpage
+\section*{Morphological Image Processing and Segmentation}
+
+Morphological image processing is a set of non-linear operations related to the shape or morphology of features in an image. These techniques are especially useful for binary images but can be extended to grayscale images.
+
+\subsection*{Basic Morphological Operations}
+
+\begin{itemize}
+    \item \textbf{Erosion:} Removes pixels on object boundaries.
+    \item \textbf{Dilation:} Adds pixels to object boundaries.
+    \item \textbf{Opening:} Erosion followed by dilation; removes small objects.
+    \item \textbf{Closing:} Dilation followed by erosion; fills small holes.
+\end{itemize}
+
+\subsubsection*{Mathematica Examples}
+
+\textbf{Erosion:}
+\begin{verbatim}
+Manipulate[Erosion[circuit, BoxMatrix[r]], {r, 1, 40, 1}]
+Manipulate[Erosion[spheres, DiskMatrix[r]], {r, 1, 10, 1}]
+Manipulate[Erosion[spheres, BoxMatrix[r]], {r, 1, 10, 1}]
+Manipulate[Erosion[spheres, CrossMatrix[r]], {r, 1, 10, 1}]
+Manipulate[Erosion[spheres, DiamondMatrix[r]], {r, 1, 10, 1}]
+\end{verbatim}
+
+\textbf{Dilation:}
+\begin{verbatim}
+Manipulate[Dilation[text, BoxMatrix[r]], {r, 1, 10, 1}]
+Dilation[text, ker1]
+Dilation[text, ker2]
+\end{verbatim}
+
+\textbf{Opening:}
+\begin{verbatim}
+Opening[triangle, DiskMatrix[9]]
+Manipulate[Opening[triangle, DiskMatrix[r]], {r, 1, 10, 1}]
+Manipulate[Opening[triangle, BoxMatrix[r]], {r, 1, 10, 1}]
+Manipulate[Opening[wood, DiskMatrix[r]], {r, 1, 10, 1}]
+\end{verbatim}
+
+\textbf{Closing:}
+\begin{verbatim}
+Manipulate[Closing[woodn, DiskMatrix[r]], {r, 1, 10, 1}]
+Manipulate[Closing[rednose, DiamondMatrix[r]], {r, 1, 15, 1}]
+Closing[crednose[[1]], DiamondMatrix[3]]
+Closing[crednose[[2]], DiamondMatrix[3]]
+Closing[1 - crednose[[2]], DiamondMatrix[3]]
+\end{verbatim}
+
+\subsection*{Boundary Extraction}
+\begin{verbatim}
+star1 = Erosion[star, CrossMatrix[1]];
+star2 = star - star1;
+\end{verbatim}
+
+\subsection*{Line Detection (Directional Kernels)}
+\begin{verbatim}
+kh = {{-1, -1, -1}, {2, 2, 2}, {-1, -1, -1}}; (* horizontal *)
+ih = ImageConvolve[circuit, kh];
+Image[Rescale[ImageData[ih]]]
+Binarize[Image[Rescale[ImageData[ih]]], 0.9]
+
+k45 = {{2, -1, -1}, {-1, 2, -1}, {-1, -1, 2}}; (* 45 degrees *)
+i45 = ImageConvolve[circuit, k45];
+Manipulate[Binarize[Image[Rescale[ImageData[i45]]], r], {r, 0.72, 1}]
+
+kv = {{-1, 2, -1}, {-1, 2, -1}, {-1, 2, -1}}; (* vertical *)
+iv = ImageConvolve[circuit, kv];
+Manipulate[Binarize[Image[Rescale[ImageData[iv]]], r], {r, 0.72, 1}]
+\end{verbatim}
+
+\subsection*{Edge Detection (Gradient Operators)}
+\begin{verbatim}
+s1 = {{-1, -2, -1}, {0, 0, 0}, {1, 2, 1}}; (* vertical Sobel *)
+s2 = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}}; (* horizontal Sobel *)
+building1 = ImageConvolve[building, s1];
+building2 = ImageConvolve[building, s2];
+A1 = ImageData[building1];
+A2 = ImageData[building2];
+A3 = Sqrt[A1^2 + A2^2];
+Image[A3]
+\end{verbatim}
+
+\subsection*{K-Means Clustering for Segmentation}
+\begin{verbatim}
+i1 = ClusteringComponents[i, 5, Method -> "KMeans"];
+Colorize[i1]
+j1 = ClusteringComponents[j, 4, Method -> "KMeans"];
+Colorize[j1, ColorRules -> {1 -> Blue, 2 -> Green, 3 -> White, 4 -> Black}]
+\end{verbatim}
+
+\subsection*{Region Growing Segmentation}
+\begin{verbatim}
+Manipulate[RegionBinarize[scan, {{199.109375, 100.88671875}}, t], {t, 0.05, 0.1, 0.01}]
+RegionBinarize[leaf, {{210.203125, 141.142578}, {192.800781, 118.919922}, {207.857422, 90.773438}, {188.513672, 39.490234}}, 0.3]
+RegionBinarize[leaf, {{202.40625, 34.914062}}, 0.3, {{229.335938, 161.509766}}]
+\end{verbatim}
+
+\subsection*{Watershed Segmentation}
+\begin{verbatim}
+cg = ColorConvert[coins, "Grayscale"];
+cb = Binarize[cg, 0.6];
+cn = ColorNegate[cb];
+dt = ImageAdjust[DistanceTransform[cn]];
+dtn = ColorNegate[dt];
+wc = WatershedComponents[dtn];
+Colorize[wc]
+wcb = Image[wc, "Bit"];
+ImageMultiply[wcb, cn]
+\end{verbatim}
+
+\textbf{Summary:} Morphological operations are essential for shape-based image analysis, segmentation, and feature extraction. Mathematica provides built-in functions for these tasks, enabling interactive exploration and visualization.
 \end{document}
