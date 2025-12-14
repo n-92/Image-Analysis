@@ -3383,15 +3383,15 @@ RegionBinarize[leaf, {{202.40625, 34.914062}}, 0.3, {{229.335938, 161.509766}}]
 
 \subsection*{Watershed Segmentation}
 \begin{verbatim}
-cg = ColorConvert[coins, "Grayscale"];
-cb = Binarize[cg, 0.6];
-cn = ColorNegate[cb];
-dt = ImageAdjust[DistanceTransform[cn]];
-dtn = ColorNegate[dt];
-wc = WatershedComponents[dtn];
-Colorize[wc]
-wcb = Image[wc, "Bit"];
-ImageMultiply[wcb, cn]
+coinsG = ColorConvert[coins, "Grayscale"];
+ImageChannels[coinsG];
+mask = Binarize[coinsG];
+maskInverse = 1 - mask;
+dist = DistanceTransform[maskInverse];
+distInv = 1 - dist;
+components = WatershedComponents[distInv];
+segmentedCoins = components*ImageData[maskInverse];
+Colorize[Image[segmentedCoins]];
 \end{verbatim}
 
 \textbf{Summary:} Morphological operations are essential for shape-based image analysis, segmentation, and feature extraction. Mathematica provides built-in functions for these tasks, enabling interactive exploration and visualization.
